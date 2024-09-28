@@ -1,0 +1,529 @@
+openapi: 3.0.0
+info:
+  title: User Authentication and Management API
+  description: This is the documentation for the User Authentication API and User Management API, including login, registration, token management, and user CRUD operations.
+  version: 1.0.0
+
+tags:
+  - name: Health
+    description: Health check endpoint
+  - name: Authentication
+    description: Endpoints related to authentication, including login, registration, and token management.
+  - name: Users
+    description: Endpoints related to user management like status updates and user CRUD operations.
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: MongoDB ObjectId
+          example: 66f16db4b295676351c24936
+        name:
+          type: string
+          description: User's name
+          example: MR RK
+        email:
+          type: string
+          description: User's email address
+          format: email
+          example: rkokk@gg.com
+        status:
+          type: string
+          description: Status of the user
+          enum: [UNBLOCKED, BLOCKED]
+          example: UNBLOCKED
+        source:
+          type: string
+          description: Source of registration
+          example: EMAIL
+        lastLogin:
+          type: string
+          description: Last login time
+          format: date-time
+          example: 2024-09-23T13:32:16.093Z
+        registrationDate:
+          type: string
+          description: User's registration date
+          format: date-time
+          example: 2024-09-23T12:33:50.486Z
+        __v:
+          type: integer
+          description: Version key from MongoDB
+          example: 0
+
+    Login:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          description: User's email
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          description: User's password
+          example: password123
+
+    Register:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          description: Full name of the user
+          example: John Doe
+        email:
+          type: string
+          format: email
+          description: User's email
+          example: user@example.com
+        password:
+          type: string
+          description: Password for the user
+          example: password123
+
+    RefreshToken:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          description: JWT refresh token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    ResetPassword:
+      type: object
+      required:
+        - password
+        - newPassword
+        - newPasswordConfirm
+      properties:
+        password:
+          type: string
+          description: Current password of the user
+          example: oldpassword123
+        newPassword:
+          type: string
+          description: New password to be set
+          example: newpassword123
+        newPasswordConfirm:
+          type: string
+          description: Confirm the new password
+          example: newpassword123
+
+    Tokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: string
+          description: JWT refresh token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    UserStatusUpdate:
+      type: object
+      required:
+        - userIds
+        - status
+      properties:
+        userIds:
+          type: array
+          description: List of user IDs
+          items:
+            type: string
+            example: 66f10eb779414b8e91bdeaab
+        status:
+          type: string
+          enum: [UNBLOCKED, BLOCKED]
+          example: UNBLOCKED
+
+    BulkDelete:
+      type: object
+      required:
+        - userIds
+      properties:
+        userIds:
+          type: array
+          description: List of user IDs to delete
+          items:
+            type: string
+            example: 66f10eb779414b8e91bdeaab
+
+    PaginatedUsers:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        totalItems:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 1
+        currentPage:
+          type: integer
+          example: 1
+
+  responses:
+    200_OK:
+      description: Successful response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/User'
+
+    200_UserWithTokens_OK:
+      description: Successful response with user info and tokens
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              user:
+                $ref: '#/components/schemas/User'
+              tokens:
+                $ref: '#/components/schemas/Tokens'
+
+    200_PaginatedUsers_OK:
+      description: Paginated list of users
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PaginatedUsers'
+
+    400_BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+                example: 400
+              message:
+                type: string
+                example: body.password must be at least 1 character
+              type:
+                type: string
+                example: Validation Error
+
+    401_Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+                example: 401
+              message:
+                type: string
+                example: Invalid or missing Bearer token
+
+    500_InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              statusCode:
+                type: integer
+                example: 500
+              message:
+                type: string
+                example: Internal Server Error
+
+    StatusUpdateResult:
+      description: Status update response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              result:
+                type: object
+                properties:
+                  acknowledged:
+                    type: boolean
+                    example: true
+                  modifiedCount:
+                    type: integer
+                    example: 1
+                  upsertedId:
+                    type: string
+                    example: null
+                  upsertedCount:
+                    type: integer
+                    example: 0
+                  matchedCount:
+                    type: integer
+                    example: 1
+
+    BulkDeleteResult:
+      description: Bulk delete response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              result:
+                type: object
+                properties:
+                  acknowledged:
+                    type: boolean
+                    example: true
+                  deletedCount:
+                    type: integer
+                    example: 1
+
+paths:
+  /status:
+    get:
+      tags:
+        - Health
+      summary: status
+      description: Returns the status of the server
+
+      responses:
+        '200':
+          description: server status check
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  message:
+                    type: string
+                    example: Api Server is running
+                  nodeVersion:
+                    type: number
+                    example: 20.2.0
+          
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+      responses:
+        '200':
+          $ref: '#/components/responses/200_UserWithTokens_OK'
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '500':
+          $ref: '#/components/responses/500_InternalServerError'
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Register'
+      responses:
+        '200':
+          $ref: '#/components/responses/200_UserWithTokens_OK'
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '500':
+          $ref: '#/components/responses/500_InternalServerError'
+
+  /auth/refresh-token:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshToken'
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '500':
+          $ref: '#/components/responses/500_InternalServerError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshToken'
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '500':
+          $ref: '#/components/responses/500_InternalServerError'
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/200_OK'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '500':
+          $ref: '#/components/responses/500_InternalServerError'
+
+  /users/status:
+    patch:
+      tags:
+        - Users
+      summary: Bulk update user status
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserStatusUpdate'
+      responses:
+        '200':
+          $ref: '#/components/responses/StatusUpdateResult'
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '500':
+          $ref: '#/components/responses/500_InternalServerError'
+
+  /users:
+    get:
+      tags:
+        - Users
+      summary: Get a list of all users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            example: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            example: 10
+      responses:
+        '200':
+          $ref: '#/components/responses/200_PaginatedUsers_OK'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '500':
+          $ref: '#/components/responses/500_InternalServerError'
+
+    delete:
+      tags:
+        - Users
+      summary: Bulk delete users
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkDelete'
+      responses:
+        '200':
+          $ref: '#/components/responses/BulkDeleteResult'
+        '400':
+          $ref: '#/components/responses/400_BadRequest'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '500':
+          $ref: '#/components/responses/500_InternalServerError'
+
+  /users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Get user information by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: 66f10eb779414b8e91bdeaab
+      responses:
+        '200':
+          $ref: '#/components/responses/200_OK'
+        '401':
+          $ref: '#/components/responses/401_Unauthorized'
+        '500':
+          $ref: '#/components/responses/500_InternalServerError'
